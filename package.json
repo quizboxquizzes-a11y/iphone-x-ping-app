@@ -1,20 +1,13 @@
 {
   "name": "iphone-x-ping-app",
   "version": "1.0.0",
-  "description": "Admin station control backend server",
+  "description": "Signal transmitter and receiver relay server",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.2"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "express": "^4.19.2"
   }
 }
