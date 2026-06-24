@@ -3,30 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iPhone X Remote Button</title>
+    <title>Station Control | Admin Monitor</title>
     <style>
-        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; margin: 0; }
-        .btn { padding: 25px 50px; font-size: 26px; font-weight: bold; color: white; background-color: #ff4757; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4); transition: transform 0.1s; user-select: none; }
-        .btn:active { transform: scale(0.95); }
+        /* ---------- TEMPLATE THEME VARIABLES ---------- */
+        :root {
+            --bg: #e5e5e5;
+            --text: #111;
+            --glass: rgba(255, 255, 255, 0.55);
+            --glass-border: rgba(0, 0, 0, 0.15);
+            --button-bg: rgba(0, 0, 0, 0.05);
+            --accent: #ff4d4d;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #111;
+                --text: #f5f5f5;
+                --glass: rgba(30, 30, 30, 0.55);
+                --glass-border: rgba(255, 255, 255, 0.15);
+                --button-bg: rgba(255, 255, 255, 0.08);
+            }
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            font-family: "Inter", -apple-system, sans-serif;
+            color: var(--text);
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(14px);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        h1 {
+            font-size: 22px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        .connected { color: #2ecc71; }
+        .disconnected { color: var(--accent); }
+
+        .btn-ping {
+            width: 100%;
+            padding: 14px;
+            background: var(--text);
+            color: var(--bg);
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        .btn-ping:active {
+            transform: scale(0.98);
+        }
+
+        .log-container {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            border-top: 1px solid var(--glass-border);
+            padding-top: 15px;
+        }
+
+        .log-entry {
+            font-size: 14px;
+            padding: 8px;
+            background: var(--button-bg);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
 
-    <button class="btn" id="pingBtn">🚨 Press to Ping</button>
+<div class="container">
+    <div class="card">
+        <h1>Station Monitor</h1>
+        <div id="status" class="status-badge disconnected">Connecting to stream...</div>
+        
+        <button class="btn-ping" onclick="triggerPing()">Send Signal Ping ⚡</button>
 
-    <script>
-        document.getElementById('pingBtn').addEventListener('click', async () => {
-            const serverUrl = 'https://iphone-x-ping-app.onrender.com/';
+        <div class="log-container">
+            <h3>Activity Log</h3>
+            <div id="log">Listening for incoming pings...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Automatically uses the current website domain (works perfectly when deployed on Render)
+    const SERVER_URL = window.location.origin;
+
+    const statusBadge = document.getElementById('status');
+    const logContainer = document.getElementById('log');
+
+    // 1. Establish live connection to server streaming events
+    const eventSource = new EventSource(`${SERVER_URL}/api/stream`);
+
+    eventSource.onopen = () => {
+        statusBadge.textContent = "Live Stream Connected";
+        statusBadge.className = "status-badge connected";
+    };
+
+    eventSource.onerror = () => {
+        statusBadge.textContent = "Stream Disconnected (Retrying...)";
+        statusBadge.className = "status-badge disconnected";
+    };
+
+    // 2. Listen for incoming pings broadcasted from the server
+    eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        // Skip heartbeat messages
+        if (data.connected) return;
+
+        if (data.alert) {
+            // Add a new ping record into the visual interface log
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `🚨 <strong>Ping Received!</strong> Broadcasted at ${data.time}`;
             
-            try {
-                const response = await fetch(serverUrl, { method: 'POST' });
-                if (response.ok) {
-                    console.log('Ping successfully transmitted!');
-                }
-            } catch (error) {
-                console.error('Error sending ping:', error);
+            // Clear placeholder text on first real item
+            if (logContainer.textContent === 'Listening for incoming pings...') {
+                logContainer.innerHTML = '';
             }
-        });
-    </script>
+            
+            logContainer.insertBefore(entry, logContainer.firstChild);
+        }
+    };
+
+    // 3. Helper function to test fire a POST request back to your server
+    async function triggerPing() {
+        try {
+            await fetch(`${SERVER_URL}/api/ping`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (error) {
+            console.error("Failed to fire ping:", error);
+        }
+    }
+</script>
+
 </body>
 </html>
